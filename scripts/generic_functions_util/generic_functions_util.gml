@@ -292,7 +292,7 @@ function reset_binds()
         clearbind:      construct_input_array([ord("C")], [gp_face2]),
         resetallbinds:  construct_input_array([vk_f1], [gp_select]),
         // obj_menuhandler
-        menuhandler_deny: construct_input_array([vk_escape, vk_backspace], [gp_face2]),
+        menuhandler_deny: construct_input_array([vk_escape, vk_backspace], [gp_start]),
         // obj_pause
         pause: construct_input_array([vk_escape], [gp_start])
     }

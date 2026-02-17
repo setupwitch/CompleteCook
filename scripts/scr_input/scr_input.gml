@@ -30,7 +30,7 @@ enum INPUT_FLAGS
 #macro stick_right_left  20007
 #macro stick_right_right 20008
 
-global.input_map = ds_map_create();
+global.input_map = {};
 
 ///@description Constructs an input array.
 ///@param {Array.Real} _input_keyboard The keyboard values to check for input. e.g: keyboard_check(_input_keyboard)
@@ -53,7 +53,7 @@ function construct_input_array(_input_keyboard = [], _input_controller = [], _in
 ///@param {Array.Real} _input_mouse The mouse values to check for input. e.g: mouse_check_button(_input_mouse)
 function declare_input(_input_name, _input_array = construct_input_array())
 {
-    global.input_map[? _input_name] = _input_array;
+    global.input_map[$ _input_name] = _input_array;
 }
 
 ///@description Change an input key declared by declare_input().
@@ -62,7 +62,7 @@ function declare_input(_input_name, _input_array = construct_input_array())
 ///@param {Real} _type The type of the input, see INPUT_TYPE.
 function change_input(_input_name, _input, _type)
 {
-    global.input_map[? _input_name][_type] = _input;
+    global.input_map[$ _input_name][_type] = _input;
 }
 
 ///@description A device used for input.
@@ -104,16 +104,16 @@ function InputHandler(_device = obj_inputcontroller.keyboard_device) constructor
     ///@returns {Struct.InputData} The current state of the input
     static get_input = function(_input_name)
     {
-        with (inputs[$ _input_name])
-            return new InputData(check, pressed, released, value);
+        return inputs[$ _input_name]; 
     }
     
     ///@description Update every Input instance inside of inputs.
     static update = function()
     {
-        var _names = struct_get_names(inputs);
-        for (var i = 0; i < array_length(_names); i++)
-            inputs[$ _names[i]].update();
+        struct_foreach(inputs, function(_name, _value)
+        {
+            _value.update();
+        });
     }
     
     ///@description Used for checking inputs on a specific key.
@@ -126,64 +126,65 @@ function InputHandler(_device = obj_inputcontroller.keyboard_device) constructor
         device = _device;
         flags = _flags;
         
+        __mapping_ref = global.input_map[$ input_name];
+        
         // declare input values
         check = false;
         pressed = false;
         released = false;
         value = 0; // -1 to 1
-        pad_check = false; // this is specifically to get release to work
+        __pad_check = false; // this is specifically to get release to work
+        
+        __flag_do_check = (flags & INPUT_FLAGS.CHECK);
+        __flag_do_pressed = (flags & INPUT_FLAGS.PRESSED);
+        __flag_do_released = (flags & INPUT_FLAGS.RELEASED);
+        __flag_do_analog = (flags & INPUT_FLAGS.VALUE);
         
         ///@description Check input
         static update = function()
         {
             // store previous to emulate pressed and released on analog
             var _prev_check = check;
-            var _prev_pad_check = pad_check;
+            var _prev_pad_check = __pad_check;
             
             // reset
             check = false;
             pressed = false;
             released = false;
             value = 0;
-            pad_check = false;
             
-            var _mapping = global.input_map[? input_name];
-            if (_mapping == undefined)
+            __pad_check = false;
+            
+            if (__mapping_ref == undefined)
             {
                 return;    
             }
             
             // keyboard
-            var _kb_keys = _mapping[INPUT_TYPE.KEYBOARD];
+            var _kb_keys = __mapping_ref[INPUT_TYPE.KEYBOARD];
             if (_kb_keys != undefined)
             {
                 for (var i = 0; i < array_length(_kb_keys); i++)
                 {
                     var _k = _kb_keys[i];
-                    if (flags & INPUT_FLAGS.CHECK) 
-                        check = check || keyboard_check(_k);
-                    if (flags & INPUT_FLAGS.PRESSED) 
-                        pressed = pressed || keyboard_check_pressed(_k);
-                    if (flags & INPUT_FLAGS.RELEASED) 
-                        released = released || keyboard_check_released(_k);
+                    if (__flag_do_check) check = check || keyboard_check(_k);
+                    if (__flag_do_pressed) pressed = pressed || keyboard_check_pressed(_k);
+                    if (__flag_do_released) released = released || keyboard_check_released(_k);
                 }
                 // spoof analog
                 value = max(value, real(check));
             }
             
             // mouse
-            var _ms_keys = _mapping[INPUT_TYPE.MOUSE];
+            var _ms_keys = __mapping_ref[INPUT_TYPE.MOUSE];
             if (_ms_keys != undefined)
             {
                 for (var i = 0; i < array_length(_ms_keys); i++)
                 {
                     var _m = _ms_keys[i];
-                    if (flags & INPUT_FLAGS.CHECK) 
-                        check = check || mouse_check_button(_m);
-                    if (flags & INPUT_FLAGS.PRESSED) 
-                        pressed = pressed || mouse_check_button_pressed(_m);
-                    if (flags & INPUT_FLAGS.RELEASED) 
-                        released = released || mouse_check_button_released(_m);
+                    if (__flag_do_check) check = check || mouse_check_button(_m);
+                    if (__flag_do_pressed) pressed = pressed || mouse_check_button_pressed(_m);
+                    if (__flag_do_released) released = released || mouse_check_button_released(_m);
                 }
                 // spoof analog
                 value = max(value, real(check));
@@ -192,7 +193,7 @@ function InputHandler(_device = obj_inputcontroller.keyboard_device) constructor
             // gamepad
             if (device.input_type == INPUT_TYPE.CONTROLLER)
             {
-                var _pad_keys = _mapping[INPUT_TYPE.CONTROLLER];
+                var _pad_keys = __mapping_ref[INPUT_TYPE.CONTROLLER];
                 if (_pad_keys != undefined)
                 {
                     var _pad_index = device.index;
@@ -223,40 +224,31 @@ function InputHandler(_device = obj_inputcontroller.keyboard_device) constructor
                         
                         if (_is_directional_axis) 
                         {
-                            if (flags & INPUT_FLAGS.VALUE)
-                                _current_pad_val = max(0, _axis_val); 
-                            if (flags & INPUT_FLAGS.CHECK)
-                                _current_pad_check = _current_pad_val > gamepad_get_axis_deadzone(_pad_index); 
+                            if (__flag_do_analog) _current_pad_val = max(0, _axis_val); 
+                            if (__flag_do_check) _current_pad_check = _current_pad_val > gamepad_get_axis_deadzone(_pad_index); 
                             
                             // calculate pressed and released
-                            if (flags & INPUT_FLAGS.PRESSED)
-                                _current_pad_pressed = (_current_pad_check && !_prev_pad_check);
-                            if (flags & INPUT_FLAGS.RELEASED)
-                                _current_pad_released = (!_current_pad_check && _prev_pad_check);
+                            if (__flag_do_pressed) _current_pad_pressed = (_current_pad_check && !_prev_pad_check);
+                            if (__flag_do_released) _current_pad_released = (!_current_pad_check && _prev_pad_check);
                         } 
                         else if (_p >= gp_axislh && _p <= gp_axisrv) 
                         {
                             // fallback
-                            if (flags & INPUT_FLAGS.VALUE)
-                                _current_pad_val = gamepad_axis_value(_pad_index, _p);
-                            if (flags & INPUT_FLAGS.CHECK)
-                                _current_pad_check = abs(_current_pad_val) > 0.2; 
+                            if (__flag_do_analog) _current_pad_val = gamepad_axis_value(_pad_index, _p);
+                            if (__flag_do_check) _current_pad_check = abs(_current_pad_val) > 0.2; 
                         }
                         else 
                         {
                             // the normal buttons
-                            if (flags & INPUT_FLAGS.CHECK)
-                                _current_pad_check = gamepad_button_check(_pad_index, _p);
-                            if (flags & INPUT_FLAGS.PRESSED)
-                                _current_pad_pressed = gamepad_button_check_pressed(_pad_index, _p);
-                            if (flags & INPUT_FLAGS.RELEASED)
-                                _current_pad_released = gamepad_button_check_released(_pad_index, _p);
+                            if (__flag_do_check) _current_pad_check = gamepad_button_check(_pad_index, _p);
+                            if (__flag_do_pressed) _current_pad_pressed = gamepad_button_check_pressed(_pad_index, _p);
+                            if (__flag_do_released) _current_pad_released = gamepad_button_check_released(_pad_index, _p);
                             
                             _current_pad_val = real(_current_pad_check);
                         }
                         
                         // Accumulate the checks for multibinds
-                        pad_check = pad_check || _current_pad_check;
+                        __pad_check = __pad_check || _current_pad_check;
                         check = check || _current_pad_check;
                         pressed = pressed || _current_pad_pressed;
                         released = released || _current_pad_released;
