@@ -4,3 +4,5 @@ var keybindBuf = write_struct_to_buffer(global.keybinds)
 buffer_save(keybindBuf, global.keybinds_filename)
 
 buffer_delete(keybindBuf)
+
+input_handler.Cleanup();
