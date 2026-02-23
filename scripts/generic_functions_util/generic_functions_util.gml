@@ -284,7 +284,7 @@ function reset_binds()
         ui_right:		construct_input_array([vk_right], [stick_left_right, gp_padr]),
         ui_up:			construct_input_array([vk_up], [stick_left_up, gp_padu]),
         ui_down:		construct_input_array([vk_down], [stick_left_down, gp_padd]),
-        ui_accept:		construct_input_array([ord("Z"), vk_enter, vk_escape], [gp_face1]),
+        ui_accept:		construct_input_array([ord("Z"), vk_enter], [gp_face1]),
         ui_deny:		construct_input_array([ord("X"), vk_escape, vk_backspace], [gp_face2]),
         
         // obj_keyconfig
